@@ -49,8 +49,8 @@ var allPossibleWaysToWin = numberOfWaysToBeatRecords.Aggregate((a, b) => a * b);
 Console.WriteLine($"All possible ways (combinations) how to win the races: {allPossibleWaysToWin}");
 
 //Part 2.
-string totalTimeForRaceStr = "";
-string totalRecordDistanceStr = "";
+var totalTimeForRaceStr = string.Empty;
+var totalRecordDistanceStr = string.Empty;
 for (var i = 0; i < 4 * 2; i += 2)
 {
     totalTimeForRaceStr += inputs[i];// available total time for the race
