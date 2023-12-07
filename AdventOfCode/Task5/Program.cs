@@ -330,7 +330,6 @@ Console.WriteLine($"The result for part 1 is: {lowestLocationNr}");
 
 
 lowestLocationNr = long.MaxValue;
-var objLock = new object();
 for (var i = 0; i < seeds.Length; i += 2)
 {
     var seedStart = seeds[i];
@@ -351,12 +350,9 @@ for (var i = 0; i < seeds.Length; i += 2)
             : lowestValue;
     }, (lowestLocationFinally) =>
     {
-        lock (objLock)
+        if (lowestLocationFinally < Interlocked.Read(ref lowestLocationNr))
         {
-            if (lowestLocationFinally < Interlocked.Read(ref lowestLocationNr))
-            {
-                Interlocked.Exchange(ref lowestLocationNr, lowestLocationFinally);
-            }
+            Interlocked.Exchange(ref lowestLocationNr, lowestLocationFinally);
         }
     });
 }
