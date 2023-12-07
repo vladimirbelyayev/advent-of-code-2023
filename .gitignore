@@ -1,2 +1,4 @@
 ﻿AdventOfCode/Task6/obj
 AdventOfCode/Task6/bin
+**/bin
+**/obj
