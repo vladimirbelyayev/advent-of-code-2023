@@ -275,6 +275,61 @@ var humidityToLocation = new long[]
     2446452559, 2629702985, 182296534
 };
 
+// Smaller subset from example for debugging purposes
+// seeds = new long[]
+// {
+//     79, 14,
+//     55, 13
+// };
+//
+// seedToSoilMap = new long[]
+// {
+//     50, 98, 2,
+//     52, 50, 48,
+// };
+//
+// soilToFertilizerMap = new long[]
+// {
+//     0, 15, 37,
+//     37, 52, 2,
+//     39, 0, 15,
+// };
+//
+// fertilizerToWaterMap = new long[]
+// {
+//     49, 53, 8,
+//     0, 11, 42,
+//     42, 0, 7,
+//     57, 7, 4
+// };
+//
+// waterToLightMap = new long[]
+// {
+//     88, 18, 7,
+//     18, 25, 70
+// };
+//
+// lightToTemperatureMap = new long[]
+// {
+//     45, 77, 23,
+//     81, 45, 19,
+//     68, 64, 13
+// };
+//
+// temperatureToHumidityMap = new long[]
+// {
+//     0, 69, 1,
+//     1, 0, 69
+// };
+//
+// humidityToLocation = new long[]
+// {
+//     60, 56, 37,
+//     56, 93, 4
+// };
+
+
+
 // Part. 1
 var lowestLocationNr = long.MaxValue;
 // ReSharper disable once LoopCanBeConvertedToQuery
@@ -297,6 +352,8 @@ foreach (var seed in seeds)
 Console.WriteLine($"The result for part 1 is: {lowestLocationNr}");
 
 // Part.2
+// Brute force (Runtime - ~ 2 minutes 5 seconds)
+
 // var seedRanges = new List<(long seedStart, long maxSeed)>();
 // for (var i = 0; i < seeds.Length; i += 2)
 // {
@@ -328,39 +385,121 @@ Console.WriteLine($"The result for part 1 is: {lowestLocationNr}");
 // }
 // Uncomment code above to see if the input seeds have overlap
 
+// Part.2 - Brute force it
+// lowestLocationNr = long.MaxValue;
+// for (var i = 0; i < seeds.Length; i += 2)
+// {
+//     var seedStart = seeds[i];
+//     var seedAmount = seeds[i + 1];
+//
+//     Parallel.For(seedStart, seedStart + seedAmount, () => long.MaxValue, (seed, loop, lowestValue) =>
+//     {
+//         var soil = TranslateToDestination(seed, seedToSoilMap);
+//         var fertilizer = TranslateToDestination(soil, soilToFertilizerMap);
+//         var water = TranslateToDestination(fertilizer, fertilizerToWaterMap);
+//         var light = TranslateToDestination(water, waterToLightMap);
+//         var temperature = TranslateToDestination(light, lightToTemperatureMap);
+//         var humidity = TranslateToDestination(temperature, temperatureToHumidityMap);
+//         var location = TranslateToDestination(humidity, humidityToLocation);
+//
+//         return location < lowestValue
+//             ? location
+//             : lowestValue;
+//     }, (lowestLocationFinally) =>
+//     {
+//         if (lowestLocationFinally < Interlocked.Read(ref lowestLocationNr))
+//         {
+//             Interlocked.Exchange(ref lowestLocationNr, lowestLocationFinally);
+//         }
+//     });
+// }
+//
+// Console.WriteLine($"The result for part 2 is: {lowestLocationNr}");
+
+
+// Part.2 - Reverse search (find lowest location and see if it hits any of the ranges of seeds)
+// without multithreading
+// Runtime - ~44 seconds
+// lowestLocationNr = long.MaxValue;
+//
+// var convertedSeeds = ConvertSeedArray(seeds);
+// long[] allMaps =
+// [
+//     ..convertedSeeds,
+//     ..seedToSoilMap, ..soilToFertilizerMap, ..fertilizerToWaterMap, ..waterToLightMap, ..lightToTemperatureMap,
+//     ..temperatureToHumidityMap, ..humidityToLocation
+// ];
+//
+// var maxLocationBoundary = CalculateMaxBoundary(allMaps);
+// var minLocation = CalculateMinValue(allMaps);
+// for (var location = minLocation;
+//      location < maxLocationBoundary;
+//      location++)
+// {
+//     var humidity = TranslateToSource(location, humidityToLocation);
+//     var temperature = TranslateToSource(humidity, temperatureToHumidityMap);
+//     var light = TranslateToSource(temperature, lightToTemperatureMap);
+//     var water = TranslateToSource(light, waterToLightMap);
+//     var fertilizer = TranslateToSource(water, fertilizerToWaterMap);
+//     var soil = TranslateToSource(fertilizer, soilToFertilizerMap);
+//     var seed = TranslateToSource(soil, seedToSoilMap);
+//
+//     if (ContainsSeed(seeds, seed))
+//     {
+//         lowestLocationNr = location;
+//         break;
+//     }
+// }
+
+// Part.2 - Reverse search (find lowest location and see if it hits any of the ranges of seeds)
+// with multithreading
+// Runtime - ~22 seconds
 
 lowestLocationNr = long.MaxValue;
-for (var i = 0; i < seeds.Length; i += 2)
-{
-    var seedStart = seeds[i];
-    var seedAmount = seeds[i + 1];
 
-    Parallel.For(seedStart, seedStart + seedAmount, () => long.MaxValue, (seed, loop, lowestValue) =>
-    {
-        var soil = TranslateToDestination(seed, seedToSoilMap);
-        var fertilizer = TranslateToDestination(soil, soilToFertilizerMap);
-        var water = TranslateToDestination(fertilizer, fertilizerToWaterMap);
-        var light = TranslateToDestination(water, waterToLightMap);
-        var temperature = TranslateToDestination(light, lightToTemperatureMap);
-        var humidity = TranslateToDestination(temperature, temperatureToHumidityMap);
-        var location = TranslateToDestination(humidity, humidityToLocation);
+var convertedSeeds = ConvertSeedArray(seeds);
+long[] allMaps =
+[
+    ..convertedSeeds,
+    ..seedToSoilMap, ..soilToFertilizerMap, ..fertilizerToWaterMap, ..waterToLightMap, ..lightToTemperatureMap,
+    ..temperatureToHumidityMap, ..humidityToLocation
+];
 
-        return location < lowestValue
-            ? location
-            : lowestValue;
-    }, (lowestLocationFinally) =>
-    {
-        if (lowestLocationFinally < Interlocked.Read(ref lowestLocationNr))
-        {
-            Interlocked.Exchange(ref lowestLocationNr, lowestLocationFinally);
-        }
-    });
-}
+var maxLocationBoundary = CalculateMaxBoundary(allMaps);
+var minLocation = CalculateMinValue(allMaps);
+
+// start from min theoretical location and go up to the highest possible range of an item in the maps
+ Parallel.For(minLocation, maxLocationBoundary, () => long.MaxValue, (location, loop, lowestValue) =>
+ {
+     var humidity = TranslateToSource(location, humidityToLocation);
+     var temperature = TranslateToSource(humidity, temperatureToHumidityMap);
+     var light = TranslateToSource(temperature, lightToTemperatureMap);
+     var water = TranslateToSource(light, waterToLightMap);
+     var fertilizer = TranslateToSource(water, fertilizerToWaterMap);
+     var soil = TranslateToSource(fertilizer, soilToFertilizerMap);
+     var seed = TranslateToSource(soil, seedToSoilMap);
+
+     if (!ContainsSeed(seeds, seed))
+     {
+         return long.MaxValue;
+     }
+
+     loop.Break();
+     return location;
+
+ }, (lowestLocationFinally) =>
+ {
+     if (lowestLocationFinally < Interlocked.Read(ref lowestLocationNr))
+     {
+         Interlocked.Exchange(ref lowestLocationNr, lowestLocationFinally);
+     }
+ });
+
 
 Console.WriteLine($"The result for part 2 is: {lowestLocationNr}");
-return;
 
-static long TranslateToDestination(long input, long[] map)
+return;
+static long TranslateToDestination(long source, long[] map)
 {
     for (var i = 0; i < map.Length; i += 3)
     {
@@ -368,11 +507,85 @@ static long TranslateToDestination(long input, long[] map)
         var sourceRangeStart = map[i+1];
         var rangeLength = map[i+2];
 
-        if (sourceRangeStart <= input && input < sourceRangeStart + rangeLength)
+        if (sourceRangeStart <= source && source < sourceRangeStart + rangeLength)
         {
-            return destinationRangeStart + (input - sourceRangeStart);
+            return destinationRangeStart + (source - sourceRangeStart);
         }
     }
 
-    return input;
+    return source;
+}
+
+static long TranslateToSource(long destination, long[] map)
+{
+    for (var i = 0; i < map.Length; i += 3)
+    {
+        var destinationRangeStart = map[i];
+        var sourceRangeStart = map[i + 1];
+        var rangeLength = map[i + 2];
+
+        if (destinationRangeStart <= destination && destination < destinationRangeStart + rangeLength)
+        {
+            return sourceRangeStart + (destination - destinationRangeStart);
+        }
+    }
+
+    return destination;
+}
+
+
+static long CalculateMaxBoundary(long[] maps)
+{
+    return Enumerable.Range(0, maps.Length / 3).Select(i =>
+            new
+            {
+                MaxExcludedBoundary = maps[i * 3] + maps[i * 3 + 2]
+            })
+        .OrderByDescending(x => x.MaxExcludedBoundary)
+        .First().MaxExcludedBoundary;
+}
+
+static long CalculateMinValue(long[] maps)
+{
+    return Enumerable.Range(0, maps.Length / 3).Select(i =>
+            new
+            {
+                MinIncludedValue = maps[i * 3]
+            })
+        .OrderBy(x => x.MinIncludedValue)
+        .First().MinIncludedValue;
+}
+
+static long[] ConvertSeedArray(long[] seeds)
+{
+    var expandedSeeds = new long[3 * seeds.Length / 2];
+
+    var arrayOffset = 0;
+    for (var i = 0; i < seeds.Length; i += 2)
+    {
+        var seedStart = seeds[i];
+        var sourceStart = 0;
+        var seedAmount = seeds[i + 1];
+        expandedSeeds[i + arrayOffset] = seedStart;
+        expandedSeeds[i + 1 + arrayOffset] = sourceStart;
+        expandedSeeds[i + 2 + arrayOffset] = seedAmount;
+        arrayOffset++;
+    }
+
+    return expandedSeeds;
+}
+
+static bool ContainsSeed(long[] seeds, long seed)
+{
+    for (var i = 0; i < seeds.Length; i +=2)
+    {
+        var seedRangeStart = seeds[i];
+        var seedRangeLength = seeds[i + 1];
+        if (seedRangeStart <= seed && seed < seedRangeStart + seedRangeLength)
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
